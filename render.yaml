@@ -4,9 +4,11 @@ services:
     runtime: python
     region: oregon
     plan: free
-    buildCommand: corepack enable && pnpm --filter @thinkfree/web build && pip install -r apps/api/pyproject.toml
+    buildCommand: npx --yes pnpm install && npx --yes pnpm --filter @thinkfree/web build && pip install ./apps/api
     startCommand: uvicorn app.main:app --app-dir apps/api --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
       - key: ENVIRONMENT
         value: production
       - key: JWT_SECRET_KEY
