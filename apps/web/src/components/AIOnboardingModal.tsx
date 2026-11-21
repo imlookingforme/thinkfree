@@ -49,6 +49,8 @@ export const AIOnboardingModal: React.FC = () => {
     },
   });
 
+  const providersList: any[] = Array.isArray(aiData) ? aiData : (aiData?.providers || []);
+
   useEffect(() => {
     // Check if onboarding was already completed
     const onboarded = localStorage.getItem('thinkfree_ai_onboarded');
@@ -59,12 +61,16 @@ export const AIOnboardingModal: React.FC = () => {
 
   useEffect(() => {
     if (aiData) {
-      setSelectedActive(aiData.active_provider || 'gemini');
+      const active = Array.isArray(aiData)
+        ? (aiData.find((p: any) => p.is_active)?.id || 'gemini')
+        : (aiData.active_provider || 'gemini');
+      setSelectedActive(active);
       const initialModels: Record<string, string> = {};
       const initialEnabled: Record<string, boolean> = {};
-      aiData.providers.forEach((p) => {
-        initialModels[p.provider] = p.model;
-        initialEnabled[p.provider] = p.is_enabled;
+      providersList.forEach((p: any) => {
+        const pid = p.provider || p.id;
+        initialModels[pid] = p.model || p.model_name || '';
+        initialEnabled[pid] = p.is_enabled;
       });
       setModels(initialModels);
       setEnabledState(initialEnabled);
@@ -98,28 +104,30 @@ export const AIOnboardingModal: React.FC = () => {
   const handleSaveAndStart = async () => {
     setIsSaving(true);
     try {
-      if (aiData) {
-        for (const p of aiData.providers) {
-          const newKey = keys[p.provider];
-          const chosenModel = models[p.provider] || p.model;
-          const isEnabled = enabledState[p.provider] ?? p.is_enabled;
+      for (const p of providersList) {
+        const pid = p.provider || p.id;
+        const newKey = keys[pid];
+        const chosenModel = models[pid] || p.model || p.model_name;
+        const isEnabled = enabledState[pid] ?? p.is_enabled;
 
-          // Send update if key entered or model/enabled changed
-          await apiClient.post('/ai/providers/update', {
-            provider: p.provider,
-            api_key: newKey && newKey.trim() ? newKey.trim() : undefined,
-            model: chosenModel,
-            is_enabled: isEnabled,
-          });
-        }
+        // Send update if key entered or model/enabled changed
+        await apiClient.post('/ai/providers/update', {
+          provider_id: pid,
+          provider: pid,
+          api_key: newKey && newKey.trim() ? newKey.trim() : undefined,
+          model_name: chosenModel,
+          model: chosenModel,
+          is_enabled: isEnabled,
+        });
+      }
 
-        // Switch to the selected active provider
-        if (selectedActive) {
-          await apiClient.post('/ai/providers/switch', {
-            provider: selectedActive,
-            model: models[selectedActive],
-          });
-        }
+      // Switch to the selected active provider
+      if (selectedActive) {
+        await apiClient.post('/ai/providers/switch', {
+          provider_id: selectedActive,
+          provider: selectedActive,
+          model: models[selectedActive],
+        });
       }
 
       await queryClient.invalidateQueries({ queryKey: ['ai-providers'] });
@@ -165,14 +173,18 @@ export const AIOnboardingModal: React.FC = () => {
           <div className="py-12 text-center text-slate-500">Loading AI providers...</div>
         ) : (
           <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
-            {aiData?.providers.map((p) => {
-              const hasConfigured = p.has_key || (keys[p.provider] && keys[p.provider].length > 0);
-              const isEnabled = enabledState[p.provider] ?? p.is_enabled;
-              const isSelectedActive = selectedActive === p.provider;
+            {providersList.map((p: any) => {
+              const pid = p.provider || p.id;
+              const hasConfigured = p.has_key || (keys[pid] && keys[pid].length > 0);
+              const isEnabled = enabledState[pid] ?? p.is_enabled;
+              const isSelectedActive = selectedActive === pid;
+              const availModels: string[] = p.available_models && p.available_models.length > 0
+                ? p.available_models
+                : [p.model || p.model_name || 'default'];
 
               return (
                 <div
-                  key={p.provider}
+                  key={pid}
                   className={`p-4 rounded-xl border transition-all ${
                     isSelectedActive
                       ? 'border-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/20'
@@ -202,7 +214,7 @@ export const AIOnboardingModal: React.FC = () => {
                         onClick={() =>
                           setEnabledState((prev) => ({
                             ...prev,
-                            [p.provider]: !isEnabled,
+                            [pid]: !isEnabled,
                           }))
                         }
                         className={`text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1 border transition-colors ${
@@ -221,8 +233,8 @@ export const AIOnboardingModal: React.FC = () => {
                         type="button"
                         disabled={!isEnabled && !hasConfigured}
                         onClick={() => {
-                          setSelectedActive(p.provider);
-                          setEnabledState((prev) => ({ ...prev, [p.provider]: true }));
+                          setSelectedActive(pid);
+                          setEnabledState((prev) => ({ ...prev, [pid]: true }));
                         }}
                         className={`text-xs px-2.5 py-1 rounded-md font-medium border transition-colors ${
                           isSelectedActive
@@ -241,31 +253,31 @@ export const AIOnboardingModal: React.FC = () => {
                       <div className="flex items-center">
                         <Key className="w-3.5 h-3.5 absolute left-3 text-slate-400 pointer-events-none" />
                         <input
-                          type={showKey[p.provider] ? 'text' : 'password'}
+                          type={showKey[pid] ? 'text' : 'password'}
                           placeholder={p.has_key ? 'Enter new key to replace existing' : 'Paste API Key (e.g. sk-..., AQ...)'}
-                          value={keys[p.provider] || ''}
-                          onChange={(e) => handleKeyChange(p.provider, e.target.value)}
+                          value={keys[pid] || ''}
+                          onChange={(e) => handleKeyChange(pid, e.target.value)}
                           className="w-full pl-8 pr-9 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
                         />
                         <button
                           type="button"
-                          onClick={() => handleToggleShowKey(p.provider)}
+                          onClick={() => handleToggleShowKey(pid)}
                           className="absolute right-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                         >
-                          {showKey[p.provider] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          {showKey[pid] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                         </button>
                       </div>
                     </div>
 
                     <div>
                       <select
-                        value={models[p.provider] || p.model}
+                        value={models[pid] || p.model || p.model_name || ''}
                         onChange={(e) =>
-                          setModels((prev) => ({ ...prev, [p.provider]: e.target.value }))
+                          setModels((prev) => ({ ...prev, [pid]: e.target.value }))
                         }
                         className="w-full py-1.5 px-2.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
                       >
-                        {p.available_models.map((m) => (
+                        {availModels.map((m) => (
                           <option key={m} value={m}>
                             {m}
                           </option>

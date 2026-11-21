@@ -87,6 +87,13 @@ class LLMConfigManager:
         if not cls._providers:
             cls.initialize_defaults()
 
+        models_map = {
+            "gemini": ["gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+            "openai": ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"],
+            "claude": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"],
+            "groq": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+            "deepseek": ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"],
+        }
         results = []
         for p in cls._providers.values():
             # Mask API key for security (never expose full key in public GET)
@@ -96,10 +103,13 @@ class LLMConfigManager:
 
             results.append({
                 "id": p.id,
+                "provider": p.id,
                 "name": p.name,
                 "has_key": bool(p.api_key),
                 "masked_key": masked_key,
                 "model_name": p.model_name,
+                "model": p.model_name,
+                "available_models": models_map.get(p.id, [p.model_name]),
                 "is_enabled": p.is_enabled,
                 "is_active": p.id == cls._active_provider_id
             })

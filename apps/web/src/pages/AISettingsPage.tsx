@@ -159,7 +159,8 @@ export const AISettingsPage: React.FC = () => {
     );
   }
 
-  const activeProvider = aiData?.providers.find((p) => p.is_active);
+  const providersList: any[] = Array.isArray(aiData) ? aiData : (aiData?.providers || []);
+  const activeProvider = providersList.find((p: any) => p.is_active);
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">
@@ -219,7 +220,7 @@ export const AISettingsPage: React.FC = () => {
                 {activeProvider ? activeProvider.name : 'None selected'}
               </h2>
               <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                Model: {activeProvider?.model} ·{' '}
+                Model: {activeProvider?.model || activeProvider?.model_name} ·{' '}
                 {activeProvider?.has_key ? `Key: ${activeProvider.masked_key}` : 'No API key set'}
               </p>
             </div>
@@ -228,17 +229,20 @@ export const AISettingsPage: React.FC = () => {
           {/* Quick Switch Buttons */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-slate-500 font-medium mr-1">Switch to:</span>
-            {aiData?.providers
-              .filter((p) => p.is_enabled && !p.is_active)
-              .map((p) => (
-                <button
-                  key={p.provider}
-                  onClick={() => handleSetActive(p.provider)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors shadow-sm"
-                >
-                  {p.name}
-                </button>
-              ))}
+            {providersList
+              .filter((p: any) => p.is_enabled && !p.is_active)
+              .map((p: any) => {
+                const pid = p.provider || p.id;
+                return (
+                  <button
+                    key={pid}
+                    onClick={() => handleSetActive(pid)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors shadow-sm"
+                  >
+                    {p.name}
+                  </button>
+                );
+              })}
           </div>
         </div>
 
@@ -277,14 +281,18 @@ export const AISettingsPage: React.FC = () => {
         </h3>
 
         <div className="grid grid-cols-1 gap-5">
-          {aiData?.providers.map((p) => {
+          {providersList.map((p: any) => {
+            const pid = p.provider || p.id;
             const isCurrentActive = p.is_active;
-            const chosenModel = selectedModels[p.provider] || p.model;
-            const currentSaveMsg = saveStatus[p.provider];
+            const chosenModel = selectedModels[pid] || p.model || p.model_name;
+            const currentSaveMsg = saveStatus[pid];
+            const availModels: string[] = p.available_models && p.available_models.length > 0
+              ? p.available_models
+              : [p.model || p.model_name || 'default'];
 
             return (
               <div
-                key={p.provider}
+                key={pid}
                 className={`p-6 rounded-2xl border transition-all ${
                   isCurrentActive
                     ? 'border-indigo-400 dark:border-indigo-600 bg-white dark:bg-slate-900 shadow-md ring-1 ring-indigo-400/20'
@@ -351,7 +359,7 @@ export const AISettingsPage: React.FC = () => {
                     <button
                       type="button"
                       disabled={isCurrentActive || !p.is_enabled}
-                      onClick={() => handleSetActive(p.provider)}
+                      onClick={() => handleSetActive(pid)}
                       className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                         isCurrentActive
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm cursor-default'
@@ -373,18 +381,18 @@ export const AISettingsPage: React.FC = () => {
                     <div className="relative">
                       <Key className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                       <input
-                        type={showKey[p.provider] ? 'text' : 'password'}
+                        type={showKey[pid] ? 'text' : 'password'}
                         placeholder={p.has_key ? `•••••••• (${p.masked_key})` : 'Paste API Key'}
-                        value={keys[p.provider] || ''}
-                        onChange={(e) => handleKeyChange(p.provider, e.target.value)}
+                        value={keys[pid] || ''}
+                        onChange={(e) => handleKeyChange(pid, e.target.value)}
                         className="w-full pl-9 pr-10 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
                       />
                       <button
                         type="button"
-                        onClick={() => handleToggleKeyVisibility(p.provider)}
+                        onClick={() => handleToggleKeyVisibility(pid)}
                         className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                       >
-                        {showKey[p.provider] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showKey[pid] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
@@ -399,12 +407,12 @@ export const AISettingsPage: React.FC = () => {
                       onChange={(e) =>
                         setSelectedModels((prev) => ({
                           ...prev,
-                          [p.provider]: e.target.value,
+                          [pid]: e.target.value,
                         }))
                       }
                       className="w-full py-2 px-3 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
                     >
-                      {p.available_models.map((m) => (
+                      {availModels.map((m) => (
                         <option key={m} value={m}>
                           {m}
                         </option>

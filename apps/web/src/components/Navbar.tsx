@@ -40,7 +40,8 @@ export const Navbar: React.FC = () => {
     { name: 'AI Models', path: '/settings/ai', icon: Cpu },
   ];
 
-  const activeProvider = aiData?.providers?.find((p: any) => p.is_active);
+  const providersList = Array.isArray(aiData) ? aiData : (aiData?.providers || []);
+  const activeProvider = providersList.find((p: any) => p.is_active);
 
   return (
     <nav className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-50">

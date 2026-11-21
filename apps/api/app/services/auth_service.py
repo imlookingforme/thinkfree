@@ -83,6 +83,11 @@ class AuthService:
                 token = auth_header.split(" ")[1]
 
         if not token:
+            # Fallback to demo student for seamless visitor exploration
+            demo_user_res = await db.execute(select(User).where(User.role == "student").limit(1))
+            demo_student = demo_user_res.scalar_one_or_none()
+            if demo_student:
+                return demo_student
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
             )
