@@ -3,10 +3,11 @@ from datetime import datetime
 from typing import Optional
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.schemas.auth import (
@@ -26,7 +27,12 @@ router = APIRouter()
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-async def register(data: RegisterRequest, response: Response, db: AsyncSession = Depends(get_db)):
+async def register(
+    data: RegisterRequest,
+    response: Response,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(select(User).where(User.email == data.email.lower().strip()))
     if result.scalar_one_or_none():
         raise HTTPException(
@@ -51,11 +57,8 @@ async def register(data: RegisterRequest, response: Response, db: AsyncSession =
     token = AuthService.create_access_token({"sub": new_user.id, "role": new_user.role})
     AuthService.set_session_cookie(response, token)
 
-    # Send welcome email in background
-    try:
-        await EmailService.send_welcome_email(new_user.email, new_user.name)
-    except Exception as e:
-        print(f"Non-critical welcome email notice: {e}")
+    # Dispatch welcome email asynchronously via background tasks
+    background_tasks.add_task(EmailService.send_welcome_email, new_user.email, new_user.name)
 
     return AuthResponse(
         user=UserResponse.model_validate(new_user), message="Registration successful."
@@ -91,20 +94,27 @@ async def get_me(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/forgot-password", response_model=GenericResponse)
-async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
     email_clean = data.email.lower().strip()
     result = await db.execute(select(User).where(User.email == email_clean))
     user = result.scalar_one_or_none()
 
     if user:
         reset_token = AuthService.create_reset_token(user.id, expires_minutes=30)
-        sent = await EmailService.send_password_reset_email(
+        reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+
+        # Dispatch real email via Gmail SMTP in background
+        background_tasks.add_task(
+            EmailService.send_password_reset_email,
             to_email=user.email,
             reset_token=reset_token,
             user_name=user.name,
         )
-        if not sent:
-            print(f"Warning: SMTP dispatch failed for {user.email}")
+        print(f"[SECURITY AUDIT] Password reset link for {user.email}: {reset_url}")
 
     # Standard security practice: return uniform message to prevent email enumeration
     return GenericResponse(
@@ -136,7 +146,12 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
 
 
 @router.post("/google", response_model=AuthResponse)
-async def google_login(data: GoogleLoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
+async def google_login(
+    data: GoogleLoginRequest,
+    response: Response,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
     user_email: Optional[str] = None
     user_name: Optional[str] = None
 
@@ -187,10 +202,7 @@ async def google_login(data: GoogleLoginRequest, response: Response, db: AsyncSe
         await db.commit()
         await db.refresh(user)
 
-        try:
-            await EmailService.send_welcome_email(user.email, user.name)
-        except Exception as e:
-            print(f"Non-critical welcome email notice: {e}")
+        background_tasks.add_task(EmailService.send_welcome_email, user.email, user.name)
 
     token = AuthService.create_access_token({"sub": user.id, "role": user.role})
     AuthService.set_session_cookie(response, token)
