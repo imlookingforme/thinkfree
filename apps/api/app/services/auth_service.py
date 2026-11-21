@@ -35,6 +35,17 @@ class AuthService:
         return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
     @staticmethod
+    def create_reset_token(user_id: str, expires_minutes: int = 30) -> str:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+        payload = {
+            "sub": user_id,
+            "purpose": "reset_password",
+            "exp": expire,
+            "iat": datetime.now(timezone.utc),
+        }
+        return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    @staticmethod
     def decode_token(token: str) -> Dict[str, Any]:
         try:
             payload = jwt.decode(
@@ -50,6 +61,22 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials."
             )
+
+    @classmethod
+    def verify_reset_token(cls, token: str) -> str:
+        payload = cls.decode_token(token)
+        if payload.get("purpose") != "reset_password":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid token purpose. Expected password reset token.",
+            )
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Malformed token payload.",
+            )
+        return user_id
 
     @staticmethod
     def set_session_cookie(response: Response, token: str) -> None:
@@ -83,13 +110,9 @@ class AuthService:
                 token = auth_header.split(" ")[1]
 
         if not token:
-            # Fallback to demo student for seamless visitor exploration
-            demo_user_res = await db.execute(select(User).where(User.role == "student").limit(1))
-            demo_student = demo_user_res.scalar_one_or_none()
-            if demo_student:
-                return demo_student
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required.",
             )
 
         payload = cls.decode_token(token)

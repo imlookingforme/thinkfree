@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, Moon, Sun, Shield, Award, FolderGit2, Cpu } from 'lucide-react';
+import { Brain, Moon, Sun, Shield, Award, FolderGit2, Cpu, LogIn, LogOut } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { apiClient } from '../api/client';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
-  const { user } = useAuthStore();
+  const { user, logout, openAuthModal } = useAuthStore();
   const [isDark, setIsDark] = useState(() => {
     return document.documentElement.classList.contains('dark') ||
       window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -115,17 +115,36 @@ export const Navbar: React.FC = () => {
               {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* User Profile */}
-            {user && (
+            {/* Auth State */}
+            {user ? (
               <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200/60 dark:border-white/[0.06]">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-slate-900 to-slate-700 dark:from-white dark:to-slate-200 text-white dark:text-slate-950 flex items-center justify-center text-xs font-bold shadow-xs">
-                  {user.name.charAt(0)}
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                  {user.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden lg:block text-left">
-                  <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">{user.name}</div>
-                  <div className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-medium">Demo Verified</div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight truncate max-w-[130px]">
+                    {user.name}
+                  </div>
+                  <div className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 capitalize font-medium">
+                    {user.role}
+                  </div>
                 </div>
+                <button
+                  onClick={() => logout()}
+                  title="Sign out"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors ml-1"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
+            ) : (
+              <button
+                onClick={() => openAuthModal('login')}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all hover:scale-[1.02]"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
             )}
           </div>
         </div>

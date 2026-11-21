@@ -16,6 +16,22 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=10)
+    new_password: str = Field(..., min_length=8)
+
+
+class GoogleLoginRequest(BaseModel):
+    credential: Optional[str] = None  # Google Identity Services JWT token
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    picture: Optional[str] = None
+
+
 class ConsentFlags(BaseModel):
     audio_retention: bool = True
     analytics_sharing: bool = True
@@ -38,3 +54,8 @@ class AuthResponse(BaseModel):
     user: UserResponse
     message: str
     token_type: str = "bearer"
+
+
+class GenericResponse(BaseModel):
+    success: bool
+    message: str

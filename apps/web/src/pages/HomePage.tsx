@@ -11,6 +11,7 @@ import {
   Brain, ShieldCheck, Layers, Compass, ArrowRight
 } from 'lucide-react';
 import { apiClient } from '../api/client';
+import { useAuthStore } from '../store/useAuthStore';
 
 interface MetricExplainability {
   name: string;
@@ -77,6 +78,7 @@ interface ProblemItem {
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { user, openAuthModal } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'mastery'>('overview');
   const [quickPrompt, setQuickPrompt] = useState('');
   const [problemSearch, setProblemSearch] = useState('');
@@ -84,33 +86,36 @@ export const HomePage: React.FC = () => {
   const [activeExplainModal, setActiveExplainModal] = useState<MetricExplainability | null>(null);
   const [showRadarModal, setShowRadarModal] = useState(false);
 
-  // Fetch live dashboard KPIs
+  // Fetch live dashboard KPIs (only if authenticated)
   const { data: dashboard } = useQuery<DashboardData>({
     queryKey: ['analytics', 'dashboard'],
     queryFn: async () => {
       const res = await apiClient.get('/analytics/dashboard');
       return res.data;
     },
+    enabled: !!user,
     staleTime: 30000,
   });
 
-  // Fetch Mastery & Weak Concepts
+  // Fetch Mastery & Weak Concepts (only if authenticated)
   const { data: masteryData } = useQuery<{ concepts: ConceptItem[]; weak_concepts: ConceptItem[] }>({
     queryKey: ['analytics', 'mastery'],
     queryFn: async () => {
       const res = await apiClient.get('/analytics/mastery');
       return res.data;
     },
+    enabled: !!user,
     staleTime: 60000,
   });
 
-  // Fetch SM-2 Spaced Review Queue
+  // Fetch SM-2 Spaced Review Queue (only if authenticated)
   const { data: reviewData } = useQuery<{ total_due: number; items: ReviewItem[] }>({
     queryKey: ['analytics', 'reviews'],
     queryFn: async () => {
       const res = await apiClient.get('/analytics/reviews');
       return res.data;
     },
+    enabled: !!user,
     staleTime: 60000,
   });
 
@@ -127,17 +132,21 @@ export const HomePage: React.FC = () => {
   const handleStartPrompt = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickPrompt.trim()) return;
+    if (!user) {
+      openAuthModal('login');
+      return;
+    }
     navigate('/attempt/new?prompt=' + encodeURIComponent(quickPrompt));
   };
 
-  const itsScore = dashboard ? Math.round(dashboard.its) : 79;
+  const itsScore = dashboard ? Math.round(dashboard.its) : 0;
   const adrScore = dashboard ? dashboard.adr.toFixed(2) : '0.00';
-  const streakDays = dashboard ? dashboard.current_streak : 61;
-  const flowHours = dashboard ? Math.floor(dashboard.flow_minutes_7d / 60) : 4;
-  const flowMins = dashboard ? dashboard.flow_minutes_7d % 60 : 57;
-  const peakHour = dashboard ? `${dashboard.peak_study_hour}:00` : '16:00';
+  const streakDays = dashboard ? dashboard.current_streak : 0;
+  const flowHours = dashboard ? Math.floor(dashboard.flow_minutes_7d / 60) : 0;
+  const flowMins = dashboard ? dashboard.flow_minutes_7d % 60 : 0;
+  const peakHour = dashboard ? `${dashboard.peak_study_hour}:00` : '--:--';
 
-  const selfSolvePercent = dashboard ? Math.round(dashboard.self_solve_rate) : 81;
+  const selfSolvePercent = dashboard ? Math.round(dashboard.self_solve_rate) : 0;
   const selfSolveData = [
     { name: 'Self-Solves (Unaided)', value: selfSolvePercent, color: '#6366f1' },
     { name: 'AI Guided', value: 100 - selfSolvePercent, color: '#334155' },
@@ -150,19 +159,19 @@ export const HomePage: React.FC = () => {
     { subject: 'Spaced Retention', value: Math.round(dashboard.radar.spaced_retention * 100) },
     { subject: 'Consistency', value: Math.round(dashboard.radar.consistency_score * 100) },
   ] : [
-    { subject: 'Unaided Solves', value: 85 },
-    { subject: 'Explanation Coverage', value: 80 },
-    { subject: 'Persistence Effort', value: 94 },
-    { subject: 'Spaced Retention', value: 82 },
-    { subject: 'Consistency', value: 90 },
+    { subject: 'Unaided Solves', value: 0 },
+    { subject: 'Explanation Coverage', value: 0 },
+    { subject: 'Persistence Effort', value: 0 },
+    { subject: 'Spaced Retention', value: 0 },
+    { subject: 'Consistency', value: 0 },
   ];
 
   const relianceTrendData = [
-    { day: '60d ago', reliance: 0.62 },
-    { day: '45d ago', reliance: 0.51 },
-    { day: '30d ago', reliance: dashboard ? dashboard.ewma_reliance_30d : 0.42 },
-    { day: '15d ago', reliance: 0.28 },
-    { day: '7d ago', reliance: dashboard ? dashboard.ewma_reliance_7d : 0.14 },
+    { day: '60d ago', reliance: 0.00 },
+    { day: '45d ago', reliance: 0.00 },
+    { day: '30d ago', reliance: dashboard ? dashboard.ewma_reliance_30d : 0.00 },
+    { day: '15d ago', reliance: 0.00 },
+    { day: '7d ago', reliance: dashboard ? dashboard.ewma_reliance_7d : 0.00 },
     { day: 'Today', reliance: dashboard ? dashboard.adr : 0.00 },
   ];
 
@@ -214,6 +223,30 @@ export const HomePage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Unauthenticated Invitation Banner */}
+        {!user && (
+          <div className="mb-6 p-4 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="text-xs font-bold text-white flex items-center gap-2">
+                <span>⚡ Welcome to ThinkFree</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-500/20 text-indigo-300 font-mono">Real User Auth</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Sign in with Google or your email to track your cognitive independence, earn verifiable badges, and record your BKT mastery graph.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => openAuthModal('login')}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition"
+              >
+                Sign In / Sign Up
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Minimalist Floating Command Bar */}
         <form onSubmit={handleStartPrompt} className="relative group">
@@ -566,7 +599,13 @@ export const HomePage: React.FC = () => {
                 return (
                   <div
                     key={p.id}
-                    onClick={() => navigate(`/attempt/${p.id}`)}
+                    onClick={() => {
+                      if (!user) {
+                        openAuthModal('login');
+                        return;
+                      }
+                      navigate(`/attempt/${p.id}`);
+                    }}
                     className="p-4 rounded-2xl border border-slate-200/70 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02] hover:border-indigo-500/50 hover:bg-white dark:hover:bg-white/[0.04] transition-all cursor-pointer shadow-xs group flex flex-col justify-between"
                   >
                     <div>

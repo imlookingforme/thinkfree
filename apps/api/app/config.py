@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
 
+    # Mail / SMTP Configuration (Gmail)
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = "raghuramvedantam16@gmail.com"
+    SMTP_PASSWORD: str = "sfev qmku kjlp qphf"
+    SMTP_FROM: str = "raghuramvedantam16@gmail.com"
+    FRONTEND_URL: str = "https://thinkfree-v4fr.onrender.com"
+
     # Code Execution
     CODERUNNER_ADAPTER: str = "subprocess"  # subprocess | judge0
     JUDGE0_URL: str = "http://localhost:2358"

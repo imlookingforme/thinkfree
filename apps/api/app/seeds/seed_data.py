@@ -3,7 +3,7 @@ import random
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.database import AsyncSessionLocal, Base, engine
 from app.models.analytics import Badge, DailyStats, Mastery
@@ -616,173 +616,72 @@ def generate_seed_problems() -> List[Dict[str, Any]]:
 
 
 async def seed_database():
-    """Seed the database with complete initial data."""
+    """Ensure database tables are created, purge legacy demo data, and seed concepts and curriculum problems."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as session:
-        # 1. Check if already seeded
-        result = await session.execute(select(User).where(User.email == "alex.demo@thinkfree.demo"))
-        if result.scalar_one_or_none():
-            print("Database already contains seed data. Skipping.")
-            return
+        # 1. Purge all legacy demo data (Alex Chen, demo professor, synthetic stats, badges, and masteries)
+        try:
+            demo_user_emails = [
+                "alex.demo@thinkfree.demo",
+                "prof.sharma@thinkfree.demo",
+                "student.demo@thinkfree.internal",
+            ]
+            demo_users = (
+                await session.execute(select(User).where(User.email.in_(demo_user_emails)))
+            ).scalars().all()
+            demo_user_ids = list(set([u.id for u in demo_users] + ["student-alex-demo", "prof-sharma-1"]))
 
-        print(
-            "Seeding ThinkFree database with 40 problems, concepts, demo professor and student..."
-        )
+            if demo_user_ids:
+                await session.execute(delete(Badge).where(Badge.student_id.in_(demo_user_ids)))
+                await session.execute(delete(DailyStats).where(DailyStats.student_id.in_(demo_user_ids)))
+                await session.execute(delete(Mastery).where(Mastery.student_id.in_(demo_user_ids)))
+                await session.execute(delete(Enrollment).where(Enrollment.student_id.in_(demo_user_ids)))
+                await session.execute(delete(Course).where(Course.id == "course-cs101"))
+                await session.execute(
+                    delete(User).where(User.id.in_(demo_user_ids) | User.email.in_(demo_user_emails))
+                )
+                await session.commit()
+                print("Purged legacy demo users and synthetic records.")
+        except Exception as e:
+            await session.rollback()
+            print(f"Demo purge notice: {e}")
 
-        # 2. Institution
-        inst = Institution(
-            id="bits-pilani-f102",
-            name="BITS Pilani (F102 Group 68)",
-            lti_config={
-                "client_id": "bits-f102-demo",
-                "auth_url": "https://lms.bits-pilani.ac.in/auth",
-            },
-            plan="enterprise",
-        )
-        session.add(inst)
+        # 2. Seed Concepts if not present
+        result = await session.execute(select(Concept).limit(1))
+        if not result.scalars().first():
+            print("Seeding concept taxonomy...")
+            for c in CONCEPTS_DATA:
+                concept = Concept(
+                    id=c["id"], name=c["name"], subject=c["subject"], parent_id=c["parent_id"]
+                )
+                session.add(concept)
+            await session.commit()
 
-        # 3. Demo Professor
-        prof = User(
-            id="prof-sharma-1",
-            name="Prof. Sharma (Instructor)",
-            email="prof.sharma@thinkfree.demo",
-            password_hash=AuthService.get_password_hash("thinkfree_prof_pass"),
-            role="professor",
-            institution_id=inst.id,
-            locale="en",
-        )
-        session.add(prof)
+        # 3. Seed Curriculum Problems (40 total) if not present
+        result = await session.execute(select(Problem).limit(1))
+        if not result.scalars().first():
+            print("Seeding 40 curriculum practice problems...")
+            problems_data = generate_seed_problems()
+            for p_data in problems_data:
+                p = Problem(
+                    title=p_data["title"],
+                    statement_md=p_data["statement_md"],
+                    subject=p_data["subject"],
+                    difficulty_b=p_data["difficulty_b"],
+                    type=p_data["type"],
+                    reference_solution_md=p_data["reference_solution_md"],
+                    rubric=p_data["rubric"],
+                    test_cases=p_data["test_cases"],
+                    concept_ids=p_data["concept_ids"],
+                    created_by=None,
+                    visibility=p_data["visibility"],
+                )
+                session.add(p)
+            await session.commit()
 
-        # 4. Demo Student
-        student = User(
-            id="student-alex-demo",
-            name="Alex Chen (Demo Student)",
-            email="alex.demo@thinkfree.demo",
-            password_hash=AuthService.get_password_hash("thinkfree_student_pass"),
-            role="student",
-            institution_id=inst.id,
-            locale="en",
-            consent_flags={
-                "audio_retention": True,
-                "analytics_sharing": True,
-                "professor_sharing": True,
-            },
-        )
-        session.add(student)
-
-        # 5. Course
-        course = Course(
-            id="course-cs101",
-            institution_id=inst.id,
-            name="CS F111: Computer Programming & Problem Solving",
-            professor_id=prof.id,
-        )
-        session.add(course)
-
-        # 6. Enrollment
-        enrollment = Enrollment(course_id=course.id, student_id=student.id)
-        session.add(enrollment)
-
-        # 7. Concepts
-        for c in CONCEPTS_DATA:
-            concept = Concept(
-                id=c["id"], name=c["name"], subject=c["subject"], parent_id=c["parent_id"]
-            )
-            session.add(concept)
-
-        # 8. Problems (40 total)
-        problems_data = generate_seed_problems()
-        for p_data in problems_data:
-            p = Problem(
-                title=p_data["title"],
-                statement_md=p_data["statement_md"],
-                subject=p_data["subject"],
-                difficulty_b=p_data["difficulty_b"],
-                type=p_data["type"],
-                reference_solution_md=p_data["reference_solution_md"],
-                rubric=p_data["rubric"],
-                test_cases=p_data["test_cases"],
-                concept_ids=p_data["concept_ids"],
-                created_by=prof.id,
-                visibility=p_data["visibility"],
-            )
-            session.add(p)
-
-        # 9. 60 Days of Synthetic Daily Stats for Demo Student
-        today = date.today()
-        base_its = 55.0
-        base_adr = 0.50
-
-        for day_offset in range(60, -1, -1):
-            stat_date = today - timedelta(days=day_offset)
-            # Simulated improvement trend over 60 days
-            progress_factor = (60 - day_offset) / 60.0
-            daily_active_mins = random.randint(30, 110)
-            daily_flow_mins = int(daily_active_mins * random.uniform(0.4, 0.8))
-            self_solves = int(random.randint(1, 4) * (1.0 + progress_factor))
-            ai_assisted = max(0, int(random.randint(0, 3) * (1.2 - progress_factor * 0.7)))
-
-            # ITS grows from ~55 up to ~84; ADR drops from ~0.50 down to ~0.18
-            its_val = min(95.0, base_its + (progress_factor * 28.0) + random.uniform(-3.0, 3.0))
-            adr_val = max(0.08, base_adr - (progress_factor * 0.32) + random.uniform(-0.04, 0.04))
-
-            stat = DailyStats(
-                student_id=student.id,
-                date=stat_date,
-                active_minutes=daily_active_mins,
-                flow_minutes=daily_flow_mins,
-                self_solves=self_solves,
-                ai_assisted=ai_assisted,
-                its=round(its_val, 1),
-                adr=round(adr_val, 2),
-            )
-            session.add(stat)
-
-        # 10. Sample Concept Mastery Records for Alex
-        for c in CONCEPTS_DATA:
-            p_known = random.uniform(0.45, 0.92)
-            mastery = Mastery(
-                student_id=student.id,
-                concept_id=c["id"],
-                p_known=p_known,
-                updated_at=datetime.utcnow() - timedelta(days=random.randint(1, 10)),
-                next_review_at=datetime.utcnow() + timedelta(days=random.randint(1, 7)),
-                ease=2.5,
-                interval_days=4.0,
-            )
-            session.add(mastery)
-
-        # 11. Initial Badges for Alex
-        badges_to_award = [
-            (
-                "independent_solver_20",
-                "Independent Solver: 20 unaided solves",
-                {"unaided_count": 24},
-            ),
-            (
-                "streak_7_days",
-                "Focus Streak: 7 consecutive days with no AI shortcuts",
-                {"streak": 7},
-            ),
-            (
-                "deep_explainer",
-                "Voice Explainer: 10 validations at High Confidence",
-                {"validations": 12},
-            ),
-        ]
-        for kind, name, payload in badges_to_award:
-            badge = Badge(
-                student_id=student.id,
-                kind=kind,
-                payload={"title": name, **payload},
-                signature=f"sig_{kind}_{student.id}_verified",
-            )
-            session.add(badge)
-
-        await session.commit()
-        print("Database successfully seeded!")
+        print("Database ready with real user authentication and clean state.")
 
 
 if __name__ == "__main__":

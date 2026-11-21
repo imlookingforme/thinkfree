@@ -10,7 +10,8 @@ export const apiClient = {
       credentials: 'include',
     });
     if (!res.ok) {
-      throw new Error(`API GET request failed with status ${res.status}`);
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || err?.message || `Request failed with status ${res.status}`);
     }
     return { data: await res.json() };
   },
@@ -24,7 +25,8 @@ export const apiClient = {
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) {
-      throw new Error(`API POST request failed with status ${res.status}`);
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || err?.message || `Request failed with status ${res.status}`);
     }
     return { data: await res.json() };
   },

@@ -34,7 +34,7 @@ jobs:
         run: uv run pytest --cov=app --cov-report=xml
         env:
           ENVIRONMENT: test
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
           JWT_SECRET_KEY: test_secret_key_ci_environment_32chars
 
   frontend-test:
