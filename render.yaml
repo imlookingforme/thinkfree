@@ -4,6 +4,7 @@ services:
     runtime: python
     region: oregon
     plan: free
+    healthCheckPath: /api/v1/health
     buildCommand: npx --yes pnpm install && npx --yes pnpm --filter @thinkfree/shared build && npx --yes pnpm --filter @thinkfree/web build && pip install ./apps/api
     startCommand: uvicorn app.main:app --app-dir apps/api --host 0.0.0.0 --port $PORT
     envVars:

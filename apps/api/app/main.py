@@ -76,7 +76,7 @@ if web_dist_dir:
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
-    @app.get("/{full_path:path}")
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"])
     async def serve_spa(full_path: str):
         # Do not hijack API or docs
         if full_path.startswith(("api", "docs", "redoc", "openapi.json")):

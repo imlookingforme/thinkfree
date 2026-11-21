@@ -8,7 +8,7 @@ from app.database import get_db
 router = APIRouter()
 
 
-@router.get("")
+@router.api_route("", methods=["GET", "HEAD"])
 async def health_check(db: AsyncSession = Depends(get_db)):
     db_status = "ok"
     try:
