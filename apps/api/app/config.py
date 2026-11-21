@@ -62,10 +62,13 @@ class Settings(BaseSettings):
     CODERUNNER_ADAPTER: str = "subprocess"  # subprocess | judge0
     JUDGE0_URL: str = "http://localhost:2358"
 
-    # Speech
+    # Speech & Bhashini ASR
     WHISPER_MODEL_SIZE: str = "base.en"
     AUDIO_RETENTION_DAYS: int = 30
     ALLOW_AUDIO_STORAGE: bool = True
+    BHASHINI_API_KEY: Optional[str] = None
+    BHASHINI_USER_ID: Optional[str] = None
+    BHASHINI_PIPELINE_ENDPOINT: str = "https://dhruva-api.bhashini.gov.in/services/inference/pipeline"
 
     # Google OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None

@@ -49,6 +49,22 @@ class SimilarVariantResponse(BaseModel):
     test_cases: Optional[List[Dict[str, Any]]] = None
 
 
+class AudioTranscribeResponse(BaseModel):
+    transcript: str
+    engine: str
+    language: str
+    duration_seconds: float
+    confidence: float
+    fluency_telemetry: Dict[str, Any]
+
+
+class AudioDefenseRequest(BaseModel):
+    transcript: str = Field(..., min_length=5)
+    language: str = "en"
+    duration_seconds: float = 15.0
+    audio_base64: Optional[str] = None
+
+
 class SimilarSubmitRequest(BaseModel):
     solution: str = Field(..., min_length=2)
     language: str = Field(default="python")

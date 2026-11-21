@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Mic, MicOff, Sparkles,
+  Mic, Sparkles,
   ArrowRight, RefreshCw, Check, ShieldCheck, Lock, AlertTriangle
 } from 'lucide-react';
+import { AudioDefenseRecorder } from '../components/AudioDefenseRecorder';
 
 interface RubricScore {
   item: string;
@@ -23,14 +24,16 @@ interface ConsistencyState {
 
 export const ValidationPage: React.FC = () => {
   const navigate = useNavigate();
+  const { id: paramSessionId } = useParams();
+  const [searchParams] = useSearchParams();
+  const sessionId = paramSessionId || searchParams.get('session_id') || 'session_current';
 
   // Mode Selection
   const [mode, setMode] = useState<'explain' | 'similar'>('explain');
+  const [explainSubMode, setExplainSubMode] = useState<'voice' | 'text'>('voice');
 
   // Explain Mode State
   const [explanation, setExplanation] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [liveTranscript, setLiveTranscript] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{
     passed: boolean;
@@ -63,43 +66,6 @@ export const ValidationPage: React.FC = () => {
   // Similar Problem State
   const [variantCode, setVariantCode] = useState('def two_sum_variant(nums, target):\n    # Solve without AI\n    pass');
   const [variantSubmitted, setVariantSubmitted] = useState(false);
-
-  // Web Speech API for live transcription
-  useEffect(() => {
-    let recognition: any = null;
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (SpeechRecognition && isRecording) {
-      recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = (event: any) => {
-        let interim = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            setExplanation((prev) => `${prev} ${event.results[i][0].transcript}`.trim());
-          } else {
-            interim += event.results[i][0].transcript;
-          }
-        }
-        setLiveTranscript(interim);
-      };
-
-      recognition.onerror = () => setIsRecording(false);
-      recognition.onend = () => setIsRecording(false);
-      recognition.start();
-    }
-
-    return () => {
-      if (recognition) recognition.stop();
-    };
-  }, [isRecording]);
-
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-  };
 
   const handleSubmitExplanation = (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,75 +265,93 @@ export const ValidationPage: React.FC = () => {
         <div className="lg:col-span-7 space-y-4">
           {mode === 'explain' ? (
             <div className="space-y-4">
-              {/* Voice / Text Explanation Input */}
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-                    <span className="text-sm font-bold text-slate-900 dark:text-white">
-                      Explain Your Solution
-                    </span>
-                  </div>
-                  {/* Microphone Toggle */}
+              {/* Voice vs Text Sub-Mode Tabs */}
+              <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-xl">
+                <div className="flex gap-2">
                   <button
-                    type="button"
-                    onClick={toggleRecording}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                      isRecording
-                        ? 'bg-rose-500 text-white animate-pulse'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    onClick={() => setExplainSubMode('voice')}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                      explainSubMode === 'voice'
+                        ? 'bg-blue-600 text-white shadow'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    {isRecording ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                    <span>{isRecording ? 'Listening (Click to Stop)' : 'Voice Record'}</span>
+                    <Mic className="w-3.5 h-3.5" />
+                    <span>Live Spoken Defense (Bhashini STT)</span>
+                  </button>
+                  <button
+                    onClick={() => setExplainSubMode('text')}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                      explainSubMode === 'text'
+                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Written Defense</span>
                   </button>
                 </div>
-
-                {isRecording && (
-                  <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl text-xs text-rose-800 dark:text-rose-300 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                    <span>Transcribing live speech... Speak naturally explaining your reasoning.</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmitExplanation} className="space-y-3">
-                  <textarea
-                    value={explanation}
-                    onChange={(e) => setExplanation(e.target.value)}
-                    placeholder="Explain in your own words: Why does your code work? What data structure was used, what is the time complexity, and how does it prevent duplicate index use?"
-                    className="w-full h-40 p-4 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-400 font-sans leading-relaxed"
-                  />
-
-                  {liveTranscript && (
-                    <div className="text-xs text-slate-500 italic p-2 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
-                      "{liveTranscript}"
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs text-slate-400">
-                      Word count: {explanation.trim().split(/\s+/).filter(Boolean).length} words
-                    </span>
-                    <button
-                      type="submit"
-                      disabled={isValidating || !explanation.trim()}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-200 dark:text-slate-900 rounded-xl text-xs font-semibold shadow-sm transition disabled:opacity-40"
-                    >
-                      {isValidating ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Grading against rubric...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Submit Explanation</span>
-                          <Check className="w-3.5 h-3.5" />
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
               </div>
+
+              {explainSubMode === 'voice' ? (
+                <AudioDefenseRecorder
+                  sessionId={sessionId || 'demo-session-id'}
+                  onDefenseComplete={(res) => {
+                    setValidationResult({
+                      passed: res.passed,
+                      coverage: res.coverage,
+                      confidence: res.confidence,
+                      confidence_band: res.confidence_band,
+                      rubric_scores: res.rubric_scores,
+                      feedback_summary: res.feedback_summary
+                    });
+                  }}
+                />
+              ) : (
+                /* Text Explanation Input */
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">
+                        Write Your Reasoning
+                      </span>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleSubmitExplanation} className="space-y-3">
+                    <textarea
+                      value={explanation}
+                      onChange={(e) => setExplanation(e.target.value)}
+                      placeholder="Explain in your own words: Why does your code work? What data structure was used, what is the time complexity, and how does it prevent duplicate index use?"
+                      className="w-full h-40 p-4 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-400 font-sans leading-relaxed"
+                    />
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs text-slate-400">
+                        Word count: {explanation.trim().split(/\s+/).filter(Boolean).length} words
+                      </span>
+                      <button
+                        type="submit"
+                        disabled={isValidating || !explanation.trim()}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-200 dark:text-slate-900 rounded-xl text-xs font-semibold shadow-sm transition disabled:opacity-40"
+                      >
+                        {isValidating ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Grading against rubric...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Submit Explanation</span>
+                            <Check className="w-3.5 h-3.5" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
 
               {/* Validation Feedback & Rubric Results */}
               {validationResult && (

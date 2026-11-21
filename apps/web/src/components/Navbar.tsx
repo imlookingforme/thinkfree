@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, Moon, Sun, Shield, Award, FolderGit2, Cpu, LogIn, LogOut } from 'lucide-react';
+import { Brain, Moon, Sun, Shield, Award, FolderGit2, Cpu, LogIn, LogOut, Users, FileText } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { apiClient } from '../api/client';
+import { ExportTranscriptModal } from './ExportTranscriptModal';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
   const { user, logout, openAuthModal } = useAuthStore();
+  const [showExportModal, setShowExportModal] = useState(false);
   const [isDark, setIsDark] = useState(() => {
     return document.documentElement.classList.contains('dark') ||
       window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -34,6 +36,7 @@ export const Navbar: React.FC = () => {
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: Brain },
+    { name: 'Pair Thinking', path: '/collaborate', icon: Users },
     { name: 'Cohort Portal', path: '/professor', icon: Shield },
     { name: 'Team Collab & DPDP', path: '/collab', icon: FolderGit2 },
     { name: 'Badge Verify', path: '/verify/badge_demo_77', icon: Award },
@@ -88,6 +91,16 @@ export const Navbar: React.FC = () => {
 
           {/* Right controls */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Export Dossier Button */}
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors shadow-xs"
+              title="Export Cognitive Sovereignty Dossier & OpenBadges 3.0"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Dossier</span>
+            </button>
+
             {/* Active AI Pill */}
             <Link
               to="/settings/ai"
@@ -149,6 +162,10 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
       </div>
+      <ExportTranscriptModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
     </nav>
   );
 };

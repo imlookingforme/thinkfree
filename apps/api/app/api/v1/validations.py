@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.analytics import update_student_mastery_and_stats
@@ -10,6 +10,8 @@ from app.database import get_db
 from app.models.problem import Problem
 from app.models.session import Session, Validation
 from app.schemas.validations import (
+    AudioDefenseRequest,
+    AudioTranscribeResponse,
     ExplainValidationRequest,
     ExplainValidationResponse,
     RubricItemResult,
@@ -20,9 +22,128 @@ from app.schemas.validations import (
 )
 from app.services.auth_service import AuthService
 from app.services.code_runner import get_code_runner
+from app.services.speech_service import SpeechService
 from app.services.validation_service import ValidationService
 
 router = APIRouter()
+
+
+@router.post("/transcribe", response_model=AudioTranscribeResponse)
+async def transcribe_spoken_defense(
+    audio: UploadFile = File(...),
+    language: str = Form("en"),
+    request: Request = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Transcribes student's spoken audio defense using Bhashini ASR (for Indic languages)
+    or Gemini Multimodal / local fallback engine.
+    """
+    audio_bytes = await audio.read()
+    result = await SpeechService.transcribe_audio(
+        audio_bytes=audio_bytes,
+        filename=audio.filename or "audio.webm",
+        language=language
+    )
+    return AudioTranscribeResponse(**result)
+
+
+@router.post("/{session_id}/explain-audio", response_model=ExplainValidationResponse)
+async def validate_by_audio_explanation(
+    session_id: str,
+    data: AudioDefenseRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Validates a verbal defense recorded via browser speech/audio, analyzes verbal fluency,
+    grades against rubric, and updates cognitive mastery.
+    """
+    user = await AuthService.get_current_user(request, db)
+    session = await db.get(Session, session_id)
+    if not session or session.student_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    problem = await db.get(Problem, session.problem_id)
+    if not problem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found")
+
+    if not session.validate_started_at:
+        session.validate_started_at = datetime.utcnow()
+    session.state = "validate"
+
+    # Analyze fluency from speech telemetry
+    fluency_data = SpeechService.analyze_verbal_fluency(data.transcript, data.duration_seconds)
+
+    # Grade explanation against problem rubric
+    result = await ValidationService.grade_explanation(
+        problem=problem,
+        solution_text=session.current_solution or "",
+        explanation_text=data.transcript
+    )
+
+    # Incorporate speech fluency telemetry
+    result.fluency = fluency_data.get("fluency_score", result.fluency)
+    result.hesitation = fluency_data.get("hesitation_ratio", result.hesitation)
+    result.specificity = max(result.specificity, fluency_data.get("specificity_ratio", 0.5))
+
+    # Recalculate pass condition if student articulated key CS concepts well
+    if fluency_data.get("detected_keywords") and len(fluency_data["detected_keywords"]) >= 2:
+        result.confidence = min(0.98, result.confidence + 0.1)
+        if result.confidence >= 0.70:
+            result.passed = True
+            result.confidence_band = "High"
+
+    if result.passed:
+        session.state = "done"
+        session.ended_at = datetime.utcnow()
+
+    # Save validation audit record
+    val_record = Validation(
+        session_id=session.id,
+        mode="voice_audio",
+        transcript=data.transcript,
+        rubric_scores=[r.model_dump() for r in result.rubric_scores],
+        confidence=result.confidence,
+        passed=result.passed,
+        consistency_score=result.consistency_score,
+        created_at=datetime.utcnow()
+    )
+    db.add(val_record)
+    await db.commit()
+    await db.refresh(session)
+
+    # Trigger analytics & mastery update
+    await update_student_mastery_and_stats(
+        db=db,
+        student_id=user.id,
+        problem=problem,
+        session=session,
+        validation_passed=result.passed,
+        validation_coverage=result.coverage
+    )
+
+    return ExplainValidationResponse(
+        session_id=session.id,
+        passed=result.passed,
+        coverage=result.coverage,
+        confidence=result.confidence,
+        confidence_band=result.confidence_band,
+        specificity=result.specificity,
+        fluency=result.fluency,
+        hesitation=result.hesitation,
+        rubric_scores=[
+            RubricItemResult(
+                item=r.item,
+                score=r.score,
+                evidence_span=r.evidence_span,
+                feedback=r.feedback
+            )
+            for r in result.rubric_scores
+        ],
+        feedback_summary=result.feedback_summary,
+        session_state=session.state
+    )
 
 
 @router.post("/{session_id}/explain", response_model=ExplainValidationResponse)

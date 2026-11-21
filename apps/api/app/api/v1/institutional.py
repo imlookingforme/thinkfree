@@ -287,6 +287,66 @@ async def public_verify_badge(
     )
 
 
+@router.get("/badges/public-key")
+async def get_badge_verification_public_key():
+    """
+    Returns the Ed25519 public key for independent offline verification.
+    """
+    return {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "algorithm": "Ed25519",
+        "public_key_hex": PUBLIC_KEY_HEX,
+        "issuer": "ThinkFree Cognitive Sovereignty Authority"
+    }
+
+
+@router.get("/badges/{badge_id}/openbadge-v3")
+async def export_openbadge_v3(
+    badge_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns W3C Verifiable Credential / OpenBadges 3.0 compliant JSON-LD document.
+    """
+    badge = await db.get(Badge, badge_id)
+    if not badge:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Badge not found")
+
+    return BadgeService.to_openbadges_v3(
+        badge_id=badge.id,
+        payload=badge.payload,
+        signature_str=badge.signature
+    )
+
+
+@router.get("/badges/student/{student_id}")
+async def list_student_badges(
+    student_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves all issued cryptographically signed badges for a given student.
+    """
+    res = await db.execute(select(Badge).where(Badge.student_id == student_id).order_by(Badge.issued_at.desc()))
+    badges = list(res.scalars().all())
+    return [
+        {
+            "id": b.id,
+            "student_id": b.student_id,
+            "kind": b.kind,
+            "title": b.payload.get("title", "Verified Independent Badge"),
+            "issued_at": b.issued_at.isoformat(),
+            "signature": b.signature,
+            "public_key_hex": PUBLIC_KEY_HEX,
+            "verify_url": f"/verify/{b.id}",
+            "openbadge_v3_url": f"/api/v1/badges/{b.id}/openbadge-v3",
+            "payload": b.payload
+        }
+        for b in badges
+    ]
+
+
 @router.post("/lti/launch")
 async def lti_launch(
     request: Request,

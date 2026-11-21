@@ -19,6 +19,7 @@ export const ProblemAttemptPage: React.FC = () => {
   const [meaningfulEdits, setMeaningfulEdits] = useState(0);
   const [steps, setSteps] = useState(1);
   const [runs, setRuns] = useState(0);
+  const [language, setLanguage] = useState<'python' | 'javascript'>('python');
   const [effortScore, setEffortScore] = useState(0.08);
   const [code, setCode] = useState('def solution():\n    # Write your initial thoughts or code here\n    pass');
   const [scratchpad, setScratchpad] = useState('');
@@ -267,10 +268,45 @@ export const ProblemAttemptPage: React.FC = () => {
         <div className="lg:col-span-7 flex flex-col space-y-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm flex flex-col h-[520px]">
             {/* Editor Action Bar */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-              <div className="flex items-center gap-2">
-                <Code2 className="w-4 h-4 text-slate-500" />
-                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Python 3 Sandbox</span>
+            <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <Code2 className="w-4 h-4 text-slate-500" />
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Sandbox</span>
+                </div>
+                {/* Polyglot Language Switcher */}
+                <div className="flex bg-slate-200 dark:bg-slate-900 p-0.5 rounded-lg text-[11px] font-semibold">
+                  <button
+                    onClick={() => {
+                      setLanguage('python');
+                      if (code.includes('function')) {
+                        setCode('def solution(nums, target):\n    # Write Python logic here\n    pass');
+                      }
+                    }}
+                    className={`px-2 py-0.5 rounded-md transition ${
+                      language === 'python'
+                        ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Python 🐍
+                  </button>
+                  <button
+                    onClick={() => {
+                      setLanguage('javascript');
+                      if (code.includes('def ')) {
+                        setCode('function solution(nums, target) {\n  // Write JavaScript logic here\n  return [];\n}');
+                      }
+                    }}
+                    className={`px-2 py-0.5 rounded-md transition ${
+                      language === 'javascript'
+                        ? 'bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    JavaScript 🟨
+                  </button>
+                </div>
               </div>
               <button
                 onClick={handleRunCode}
@@ -286,7 +322,7 @@ export const ProblemAttemptPage: React.FC = () => {
             <div className="flex-1">
               <Editor
                 height="100%"
-                defaultLanguage="python"
+                language={language}
                 value={code}
                 onChange={handleCodeChange}
                 theme="vs-dark"

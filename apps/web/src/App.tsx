@@ -11,6 +11,7 @@ import { BadgeVerificationPage } from './pages/BadgeVerificationPage';
 import { CollaborationAndPrivacyPage } from './pages/CollaborationAndPrivacyPage';
 import { AISettingsPage } from './pages/AISettingsPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { CollaborativeRoomPage } from './pages/CollaborativeRoomPage';
 import { AIOnboardingModal } from './components/AIOnboardingModal';
 import { AuthModal } from './components/AuthModal';
 import { useAuthStore } from './store/useAuthStore';
@@ -47,6 +48,8 @@ export const App: React.FC = () => {
             <Route path="verify/:id" element={<BadgeVerificationPage />} />
             <Route path="settings/ai" element={<AISettingsPage />} />
             <Route path="reset-password" element={<ResetPasswordPage />} />
+            <Route path="collaborate" element={<CollaborativeRoomPage />} />
+            <Route path="collaborate/:code" element={<CollaborativeRoomPage />} />
             <Route path="problems" element={<HomePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

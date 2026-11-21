@@ -117,3 +117,54 @@ class BadgeService:
                 metrics={},
                 error=f"Signature verification failed: {str(exc)}"
             )
+
+    @classmethod
+    def to_openbadges_v3(
+        cls,
+        badge_id: str,
+        payload: Dict[str, Any],
+        signature_str: str,
+        base_url: str = "https://thinkfree-v4fr.onrender.com"
+    ) -> Dict[str, Any]:
+        """
+        Exports badge into W3C Verifiable Credential / OpenBadges 3.0 JSON-LD format.
+        """
+        issued_at_str = payload.get("issued_at", datetime.utcnow().isoformat())
+        return {
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+            ],
+            "id": f"urn:uuid:{badge_id}",
+            "type": ["VerifiableCredential", "OpenBadgeCredential"],
+            "name": payload.get("title", "Verified Independent Performance"),
+            "issuer": {
+                "id": f"{base_url}/api/v1/badges/issuer",
+                "type": "Profile",
+                "name": payload.get("issuer", "ThinkFree Cognitive Sovereignty Authority"),
+                "url": base_url,
+                "email": "verify@thinkfree.org"
+            },
+            "validFrom": issued_at_str,
+            "credentialSubject": {
+                "id": f"urn:thinkfree:student:{payload.get('student_id', 'anonymous')}",
+                "type": ["AchievementSubject"],
+                "achievement": {
+                    "id": f"urn:thinkfree:achievement:{payload.get('kind', 'gold')}",
+                    "type": ["Achievement"],
+                    "name": payload.get("title", "Verified Independent Performance"),
+                    "description": "Demonstrated independent algorithmic reasoning, minimal AI reliance, and verified verbal speech defense.",
+                    "criteria": {
+                        "narrative": "Awarded upon maintaining Independent Thinking Score (ITS) >= 80%, AI Dependence Ratio (ADR) <= 0.25, and passing rigorous Socratic verbal defense.",
+                        "metrics": payload.get("criteria", {})
+                    }
+                }
+            },
+            "proof": {
+                "type": "Ed25519Signature2020",
+                "created": issued_at_str,
+                "verificationMethod": f"{base_url}/api/v1/badges/public-key",
+                "proofPurpose": "assertionMethod",
+                "proofValue": signature_str
+            }
+        }

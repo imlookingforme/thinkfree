@@ -3,21 +3,38 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.analytics import DailyStats
+from app.models.problem import Problem
 from app.models.project import Project, Task, TaskEvent
 from app.models.session import Session, Validation
 from app.services.auth_service import AuthService
+from app.services.collaboration_engine import CollaborationEngine
 
 router = APIRouter()
 
 
 # --- Pydantic Schemas ---
+
+class CreatePairRoomRequest(BaseModel):
+    problem_id: str
+    language: str = "python"
+    initial_code: Optional[str] = None
+
+
+class PairRoomResponse(BaseModel):
+    room_code: str
+    problem_id: str
+    code: str
+    language: str
+    participants: List[Dict[str, Any]]
+    divergence: Dict[str, Any]
+    chat_messages: List[Dict[str, Any]]
 
 class CreateProjectRequest(BaseModel):
     name: str
@@ -267,3 +284,134 @@ async def delete_personal_account(
     await db.delete(user)
     await db.commit()
     return {"status": "account_erased", "message": "All personal records permanently deleted per DPDP Act 2023."}
+
+
+# --- Synchronous Pair-Thinking Room (WebSockets) ---
+
+@router.post("/rooms/create", response_model=PairRoomResponse)
+async def create_or_get_pair_room(
+    data: CreatePairRoomRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Creates or initializes a real-time collaborative pair-thinking room with a 6-digit code.
+    """
+    user = await AuthService.get_current_user(request, db)
+    problem = await db.get(Problem, data.problem_id)
+    if not problem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found")
+
+    initial_code = data.initial_code or (
+        "def solve(nums, target):\n    # Pair Driver: write logic here\n    pass\n"
+        if data.language == "python"
+        else "function solve(nums, target) {\n  // Pair Driver: write logic here\n  return [];\n}\n"
+    )
+
+    room = await CollaborationEngine.get_or_create_room(
+        problem_id=data.problem_id,
+        initial_code=initial_code,
+        language=data.language
+    )
+
+    return PairRoomResponse(
+        room_code=room.room_code,
+        problem_id=room.problem_id,
+        code=room.code,
+        language=room.language,
+        participants=[p.to_dict() for p in room.participants.values()],
+        divergence=room.get_divergence_metrics(),
+        chat_messages=room.chat_messages
+    )
+
+
+@router.get("/rooms/{room_code}", response_model=PairRoomResponse)
+async def get_pair_room_info(
+    room_code: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves state and participant roster of a pair-thinking room.
+    """
+    await AuthService.get_current_user(request, db)
+    room = CollaborationEngine.get_room(room_code)
+    if not room:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+
+    return PairRoomResponse(
+        room_code=room.room_code,
+        problem_id=room.problem_id,
+        code=room.code,
+        language=room.language,
+        participants=[p.to_dict() for p in room.participants.values()],
+        divergence=room.get_divergence_metrics(),
+        chat_messages=room.chat_messages
+    )
+
+
+@router.websocket("/ws/{room_code}")
+async def pair_thinking_websocket(websocket: WebSocket, room_code: str):
+    """
+    Full duplex WebSocket connection for real-time collaborative coding,
+    Driver/Navigator role sync, anti-slacking divergence tracking, and live chat.
+    """
+    await websocket.accept()
+    room = CollaborationEngine.get_room(room_code)
+    if not room:
+        # Auto-create if joining existing code
+        room = await CollaborationEngine.get_or_create_room(
+            problem_id="prob-1",
+            room_code=room_code
+        )
+
+    participant = None
+    try:
+        while True:
+            msg = await websocket.receive_json()
+            msg_type = msg.get("type")
+
+            if msg_type == "join":
+                user_id = msg.get("user_id", "anon")
+                user_name = msg.get("user_name", "Anonymous Thinker")
+                participant = await CollaborationEngine.join_room(room_code, websocket, user_id, user_name)
+                await CollaborationEngine.broadcast_room_state(room_code)
+
+            elif msg_type == "code_change":
+                code = msg.get("code", "")
+                lang = msg.get("language")
+                room.code = code
+                if lang:
+                    room.language = lang
+                if participant:
+                    participant.keystroke_count += 1
+                await CollaborationEngine.broadcast_room_state(room_code)
+
+            elif msg_type == "cursor":
+                if participant:
+                    participant.cursor_line = msg.get("line", 1)
+                    participant.cursor_ch = msg.get("ch", 1)
+                await CollaborationEngine.broadcast_room_state(room_code)
+
+            elif msg_type == "swap_roles":
+                CollaborationEngine.swap_roles(room_code)
+                await CollaborationEngine.broadcast_room_state(room_code)
+
+            elif msg_type == "chat":
+                text = msg.get("text", "")
+                if text and participant:
+                    room.chat_messages.append({
+                        "sender_name": participant.user_name,
+                        "role": participant.role,
+                        "text": text,
+                        "ts": datetime.utcnow().isoformat()
+                    })
+                    await CollaborationEngine.broadcast_room_state(room_code)
+
+    except WebSocketDisconnect:
+        if participant:
+            await CollaborationEngine.leave_room(room_code, websocket, participant.client_id)
+            await CollaborationEngine.broadcast_room_state(room_code)
+    except Exception:
+        if participant:
+            await CollaborationEngine.leave_room(room_code, websocket, participant.client_id)

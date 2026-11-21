@@ -30,4 +30,16 @@ export const apiClient = {
     }
     return { data: await res.json() };
   },
+  postForm: async (url: string, formData: FormData) => {
+    const res = await fetch(`${API_BASE}${url}`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || err?.message || `Request failed with status ${res.status}`);
+    }
+    return { data: await res.json() };
+  },
 };
