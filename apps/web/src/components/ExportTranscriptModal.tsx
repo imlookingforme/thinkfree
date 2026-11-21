@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Printer, Download, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -89,7 +90,7 @@ export const ExportTranscriptModal: React.FC<ExportTranscriptModalProps> = ({
     setTimeout(() => setDownloadSuccess(false), 2500);
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden my-8">
         {/* Modal Action Bar (Hidden in Print) */}
@@ -264,6 +265,7 @@ export const ExportTranscriptModal: React.FC<ExportTranscriptModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
