@@ -1,0 +1,125 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: thinkfree-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-thinkfree}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-thinkfree_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-thinkfree_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-thinkfree} -d ${POSTGRES_DB:-thinkfree_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: thinkfree-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Judge0 CE Services for Sandboxed Code Execution
+  judge0-db:
+    image: postgres:15-alpine
+    container_name: thinkfree-judge0-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: judge0
+      POSTGRES_PASSWORD: judge0password
+      POSTGRES_DB: judge0
+    volumes:
+      - judge0_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U judge0 -d judge0"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  judge0-redis:
+    image: redis:7-alpine
+    container_name: thinkfree-judge0-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  judge0-server:
+    image: judge0/judge0:1.13.1
+    container_name: thinkfree-judge0-server
+    restart: unless-stopped
+    privileged: true
+    environment:
+      - REDIS_URL=redis://judge0-redis:6379/0
+      - POSTGRES_USER=judge0
+      - POSTGRES_PASSWORD=judge0password
+      - POSTGRES_DB=judge0
+      - POSTGRES_HOST=judge0-db
+    ports:
+      - "2358:2358"
+    depends_on:
+      judge0-db:
+        condition: service_healthy
+      judge0-redis:
+        condition: service_healthy
+
+  # ThinkFree FastAPI Backend API
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    container_name: thinkfree-api
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-thinkfree}:${POSTGRES_PASSWORD:-thinkfree_secure_password}@postgres:5432/${POSTGRES_DB:-thinkfree_db}
+      - REDIS_URL=redis://redis:6379/0
+      - JUDGE0_URL=http://judge0-server:2358
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ../apps/api:/app/apps/api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      judge0-server:
+        condition: service_started
+
+  # ThinkFree React Vite Web Frontend
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    container_name: thinkfree-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ../apps/web:/app/apps/web
+      - /app/apps/web/node_modules
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  redis_data:
+  judge0_db_data:

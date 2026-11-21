@@ -1,0 +1,63 @@
+name: ThinkFree CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend-test:
+    name: Backend Lint & Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        working-directory: ./apps/api
+        run: uv sync --extra dev
+
+      - name: Lint with Ruff
+        working-directory: ./apps/api
+        run: uv run ruff check .
+
+      - name: Run Backend Pytest Suite
+        working-directory: ./apps/api
+        run: uv run pytest --cov=app --cov-report=xml
+        env:
+          ENVIRONMENT: test
+          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          JWT_SECRET_KEY: test_secret_key_ci_environment_32chars
+
+  frontend-test:
+    name: Frontend Typecheck & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Typecheck Frontend
+        run: pnpm typecheck:web
+
+      - name: Build Frontend
+        run: pnpm build:web

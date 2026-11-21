@@ -1,0 +1,25 @@
+{
+  "name": "thinkfree-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ThinkFree - Thinking-first learning platform preventing AI over-reliance",
+  "scripts": {
+    "dev:web": "pnpm --filter @thinkfree/web dev",
+    "build:web": "pnpm --filter @thinkfree/web build",
+    "lint:web": "pnpm --filter @thinkfree/web lint",
+    "typecheck:web": "pnpm --filter @thinkfree/web type-check",
+    "test:web": "pnpm --filter @thinkfree/web test",
+    "generate:client": "pnpm --filter @thinkfree/shared generate",
+    "docker:up": "docker compose -f infra/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infra/docker-compose.yml down",
+    "docker:logs": "docker compose -f infra/docker-compose.yml logs -f"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
