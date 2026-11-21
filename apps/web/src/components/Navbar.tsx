@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, Moon, Sun, Shield, Award, FolderGit2, Cpu, Sparkles } from 'lucide-react';
+import { Brain, Moon, Sun, Shield, Award, FolderGit2, Cpu } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { apiClient } from '../api/client';
 
@@ -44,20 +44,27 @@ export const Navbar: React.FC = () => {
   const activeProvider = providersList.find((p: any) => p.is_active);
 
   return (
-    <nav className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="border-b border-slate-200/60 dark:border-white/[0.06] bg-white/70 dark:bg-[#07090e]/80 backdrop-blur-xl sticky top-0 z-50 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
           <div className="flex items-center gap-8">
-            <Link to="/" className="flex items-center gap-2.5 font-bold text-lg tracking-tight text-slate-900 dark:text-white">
-              <div className="p-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900">
-                <Brain className="w-5 h-5" />
+            <Link to="/" className="flex items-center gap-2.5 group">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-400 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+                <Brain className="w-4 h-4" />
               </div>
-              <span>ThinkFree</span>
+              <div className="flex flex-col">
+                <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white font-sans">
+                  ThinkFree
+                </span>
+                <span className="text-[9px] font-mono tracking-widest uppercase text-indigo-600 dark:text-indigo-400 -mt-1 font-semibold">
+                  Cognitive AI
+                </span>
+              </div>
             </Link>
 
             {/* Nav links */}
-            <div className="hidden md:flex items-center gap-1">
+            <div className="hidden md:flex items-center gap-1 bg-slate-100/60 dark:bg-white/[0.03] p-1 rounded-xl border border-slate-200/50 dark:border-white/[0.04]">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -65,13 +72,13 @@ export const Navbar: React.FC = () => {
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold tracking-tight transition-all ${
                       isActive
-                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        ? 'bg-white dark:bg-white/[0.1] text-slate-900 dark:text-white shadow-xs border border-slate-200/60 dark:border-white/[0.08]'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/[0.04]'
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-3.5 h-3.5" />
                     <span>{item.name}</span>
                   </Link>
                 );
@@ -84,40 +91,39 @@ export const Navbar: React.FC = () => {
             {/* Active AI Pill */}
             <Link
               to="/settings/ai"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100/80 dark:bg-white/[0.04] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] hover:border-indigo-500/50 dark:hover:border-indigo-400/50 transition-all shadow-xs group"
               title="Click to switch or configure AI models"
             >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
-              <span className="hidden sm:inline font-mono">
-                AI: {activeProvider ? activeProvider.name : 'Configuring...'}
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="sm:hidden font-mono">AI</span>
+              <span className="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                {activeProvider ? activeProvider.name : 'Configuring...'}
+              </span>
+              <span className="hidden sm:inline text-[10px] text-indigo-500 dark:text-indigo-400 font-mono font-medium group-hover:translate-x-0.5 transition-transform">
+                Switch →
+              </span>
             </Link>
-
-            {/* Demo Indicator */}
-            <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-              <Shield className="w-3 h-3 text-emerald-500" />
-              <span>demo data</span>
-            </span>
 
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors border border-transparent hover:border-slate-200 dark:hover:border-white/[0.06]"
               aria-label="Toggle theme"
             >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
             </button>
 
             {/* User Profile */}
             {user && (
-              <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-                <div className="w-8 h-8 rounded-full bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 flex items-center justify-center text-xs font-bold">
+              <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200/60 dark:border-white/[0.06]">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-slate-900 to-slate-700 dark:from-white dark:to-slate-200 text-white dark:text-slate-950 flex items-center justify-center text-xs font-bold shadow-xs">
                   {user.name.charAt(0)}
                 </div>
                 <div className="hidden lg:block text-left">
-                  <div className="text-xs font-medium text-slate-900 dark:text-white leading-tight">{user.name}</div>
-                  <div className="text-[10px] text-slate-500 capitalize">{user.role}</div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">{user.name}</div>
+                  <div className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-medium">Demo Verified</div>
                 </div>
               </div>
             )}

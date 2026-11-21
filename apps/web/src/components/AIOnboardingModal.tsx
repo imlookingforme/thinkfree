@@ -9,7 +9,6 @@ import {
   EyeOff,
   Cpu,
   ArrowRight,
-  ShieldCheck,
   Power
 } from 'lucide-react';
 
@@ -147,32 +146,33 @@ export const AIOnboardingModal: React.FC = () => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 my-8 text-slate-900 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-2xl bg-white dark:bg-[#0c101b] border border-slate-200/80 dark:border-white/[0.08] rounded-3xl shadow-2xl p-6 sm:p-8 my-8 text-slate-900 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-start gap-4 mb-6 pb-6 border-b border-slate-200 dark:border-slate-800">
-          <div className="p-3 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-xl">
-            <Sparkles className="w-6 h-6" />
+        <div className="mb-6 pb-6 border-b border-slate-100 dark:border-white/[0.06]">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono uppercase tracking-widest bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-bold">
+              <Sparkles className="w-3 h-3 animate-pulse" />
+              Sovereign AI Router
+            </span>
+            <span className="text-slate-400 dark:text-slate-600 text-xs font-mono">• Zero Key Loss Engine</span>
           </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">Configure Your AI Engines</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              ThinkFree supports multiple AI backends for Socratic tutoring and validation. Provide your API keys below to unlock them.
-            </p>
-            <div className="flex items-center gap-2 mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800/60">
-              <ShieldCheck className="w-4 h-4 shrink-0" />
-              <span>
-                <strong>Zero Key Loss:</strong> Disabling an AI preserves your key on the server. You can toggle providers anytime without re-entering keys!
-              </span>
-            </div>
-          </div>
+
+          <h2 className="text-2xl font-extrabold tracking-tight font-sans">
+            Configure Your AI Engines
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+            ThinkFree puts you in control. Add your API keys below to unlock multi-model Socratic tutoring. Disabling a model never purges your key from the server.
+          </p>
         </div>
 
         {/* Provider List */}
         {isLoading ? (
-          <div className="py-12 text-center text-slate-500">Loading AI providers...</div>
+          <div className="py-16 text-center text-xs font-mono text-slate-400 animate-pulse">
+            Querying provider registry...
+          </div>
         ) : (
-          <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
+          <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
             {providersList.map((p: any) => {
               const pid = p.provider || p.id;
               const hasConfigured = p.has_key || (keys[pid] && keys[pid].length > 0);
@@ -185,29 +185,44 @@ export const AIOnboardingModal: React.FC = () => {
               return (
                 <div
                   key={pid}
-                  className={`p-4 rounded-xl border transition-all ${
+                  className={`p-4 rounded-2xl border transition-all duration-200 ${
                     isSelectedActive
-                      ? 'border-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/20'
-                      : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50'
+                      ? 'border-indigo-500/80 bg-indigo-500/[0.04] dark:bg-indigo-500/[0.06] shadow-sm'
+                      : 'border-slate-200/60 dark:border-white/[0.05] bg-slate-50/50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/[0.09]'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Cpu className="w-4 h-4 text-slate-500" />
-                      <span className="font-semibold text-sm">{p.name}</span>
-                      {hasConfigured ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Key saved {p.masked_key ? `(${p.masked_key})` : ''}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
-                          Not configured
-                        </span>
-                      )}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`p-2 rounded-xl ${
+                        isSelectedActive
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-slate-400'
+                      }`}>
+                        <Cpu className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm tracking-tight">{p.name}</span>
+                          {isSelectedActive && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] font-mono text-slate-400 mt-0.5">
+                          {hasConfigured ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Key stored {p.masked_key ? `(${p.masked_key})` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 dark:text-slate-500">No key set</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
                       {/* Enable/Disable Toggle */}
                       <button
                         type="button"
@@ -217,18 +232,18 @@ export const AIOnboardingModal: React.FC = () => {
                             [pid]: !isEnabled,
                           }))
                         }
-                        className={`text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1 border transition-colors ${
+                        className={`text-xs px-2.5 py-1.5 rounded-lg font-mono font-medium flex items-center gap-1.5 border transition-all ${
                           isEnabled
-                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-700'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                            : 'bg-slate-100 dark:bg-white/[0.05] text-slate-400 border-slate-200 dark:border-white/[0.08]'
                         }`}
-                        title="Disabling keeps key saved in memory/settings"
+                        title="Disabling keeps key saved on server"
                       >
                         <Power className="w-3 h-3" />
-                        {isEnabled ? 'Enabled' : 'Disabled'}
+                        <span>{isEnabled ? 'Enabled' : 'Disabled'}</span>
                       </button>
 
-                      {/* Select as Active radio */}
+                      {/* Select as Active */}
                       <button
                         type="button"
                         disabled={!isEnabled && !hasConfigured}
@@ -236,49 +251,47 @@ export const AIOnboardingModal: React.FC = () => {
                           setSelectedActive(pid);
                           setEnabledState((prev) => ({ ...prev, [pid]: true }));
                         }}
-                        className={`text-xs px-2.5 py-1 rounded-md font-medium border transition-colors ${
+                        className={`text-xs px-3 py-1.5 rounded-lg font-mono font-semibold border transition-all ${
                           isSelectedActive
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-indigo-400 disabled:opacity-40'
+                            : 'bg-white dark:bg-white/[0.04] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/[0.08] hover:border-indigo-500/50 disabled:opacity-30'
                         }`}
                       >
-                        {isSelectedActive ? 'Active Engine' : 'Set as Active'}
+                        {isSelectedActive ? 'Active' : 'Set Active'}
                       </button>
                     </div>
                   </div>
 
                   {/* Input fields */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-                    <div className="sm:col-span-2 relative">
-                      <div className="flex items-center">
-                        <Key className="w-3.5 h-3.5 absolute left-3 text-slate-400 pointer-events-none" />
-                        <input
-                          type={showKey[pid] ? 'text' : 'password'}
-                          placeholder={p.has_key ? 'Enter new key to replace existing' : 'Paste API Key (e.g. sk-..., AQ...)'}
-                          value={keys[pid] || ''}
-                          onChange={(e) => handleKeyChange(pid, e.target.value)}
-                          className="w-full pl-8 pr-9 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleToggleShowKey(pid)}
-                          className="absolute right-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                        >
-                          {showKey[pid] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 mt-2">
+                    <div className="sm:col-span-8 relative">
+                      <Key className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                      <input
+                        type={showKey[pid] ? 'text' : 'password'}
+                        placeholder={p.has_key ? 'Replace saved API key...' : 'Paste API Key (sk-..., AQ...)'}
+                        value={keys[pid] || ''}
+                        onChange={(e) => handleKeyChange(pid, e.target.value)}
+                        className="w-full pl-8 pr-9 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-black/40 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleToggleShowKey(pid)}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        {showKey[pid] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
 
-                    <div>
+                    <div className="sm:col-span-4">
                       <select
                         value={models[pid] || p.model || p.model_name || ''}
                         onChange={(e) =>
                           setModels((prev) => ({ ...prev, [pid]: e.target.value }))
                         }
-                        className="w-full py-1.5 px-2.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                        className="w-full py-2 px-2.5 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-black/40 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
                       >
                         {availModels.map((m) => (
-                          <option key={m} value={m}>
+                          <option key={m} value={m} className="bg-slate-900 text-white">
                             {m}
                           </option>
                         ))}
@@ -292,13 +305,13 @@ export const AIOnboardingModal: React.FC = () => {
         )}
 
         {/* Footer Actions */}
-        <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="mt-6 pt-5 border-t border-slate-100 dark:border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-3">
           <button
             type="button"
             onClick={handleDismiss}
-            className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 underline"
+            className="text-xs font-mono text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
           >
-            Skip for now (Use current / Mock AI)
+            Skip for now → Use active default
           </button>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -306,7 +319,7 @@ export const AIOnboardingModal: React.FC = () => {
               type="button"
               onClick={handleSaveAndStart}
               disabled={isSaving}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-50"
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition-all disabled:opacity-50"
             >
               {savedSuccess ? (
                 <>
@@ -315,8 +328,8 @@ export const AIOnboardingModal: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <span>{isSaving ? 'Saving...' : 'Save & Start Learning'}</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>{isSaving ? 'Saving...' : 'Save & Launch Workspace'}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}
             </button>
