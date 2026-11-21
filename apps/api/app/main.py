@@ -18,6 +18,23 @@ async def lifespan(app: FastAPI):
     # Initialize database tables on startup
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Automatically populate seed problems and curriculum on fresh startup
+    try:
+        from sqlalchemy import select
+        from app.database import AsyncSessionLocal
+        from app.models.problem import Problem
+        from app.seeds.seed_data import seed_database
+
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(Problem).limit(1))
+            has_problems = result.scalars().first() is not None
+
+        if not has_problems:
+            await seed_database()
+    except Exception as e:
+        print(f"Auto-seed notification: {e}")
+
     yield
     await engine.dispose()
 
